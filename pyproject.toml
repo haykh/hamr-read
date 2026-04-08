@@ -9,6 +9,9 @@ description = "Python bindings for reading and processing HARM GRMHD simulation 
 requires-python = ">=3.8"
 dependencies = ["numpy", "xarray"]
 
+[project.scripts]
+hamr_convert = "hamr_read.convert:main"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["hamr_read*"]

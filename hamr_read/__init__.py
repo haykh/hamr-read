@@ -12,6 +12,7 @@ from .pp_c import (
     calc_precesion_accurate_disk_c,
 )
 from .read import Data, DataNumpy, PolarPlotAccessor
+from .convert import convert
 
 __all__ = [
     "pointwise_invert_4x4",
@@ -28,4 +29,5 @@ __all__ = [
     "Data",
     "DataNumpy",
     "PolarPlotAccessor",
+    "convert",
 ]

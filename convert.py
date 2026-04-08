@@ -5,10 +5,14 @@ from pp import PostProcessor
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--input_filename_base", help="base name of hamr files to read", required=True
+    "--input",
+    help="base name of hamr files to read",
+    required=True,
 )
 parser.add_argument(
-    "--output_filename_base", help="base name of harm3d files to write", required=True
+    "--output",
+    help="base name of the *.harm files to write",
+    default="merged",
 )
 parser.add_argument(
     "--frame_min",
@@ -23,7 +27,10 @@ parser.add_argument(
     required=True,
 )
 parser.add_argument(
-    "--frame_stride", type=int, help="stride in file numbers", default=1
+    "--frame_stride",
+    type=int,
+    help="stride in file numbers",
+    default=1,
 )
 parser.add_argument("--r_min", type=float, default=1.31224989992)
 parser.add_argument("--r_max", type=float, default=105.0)
@@ -39,7 +46,7 @@ lowres2 = args.low_res_th if args.low_res_th > 0 else args.low_res
 lowres3 = args.low_res_ph if args.low_res_ph > 0 else args.low_res
 
 pp = PostProcessor(
-    input_dir=args.input_filename_base,
+    input_dir=args.input,
     lowres1=lowres1,
     lowres2=lowres2,
     lowres3=lowres3,
@@ -62,7 +69,7 @@ frame_nums = range(args.frame_min, args.frame_max + 1, args.frame_stride)
 
 
 def worker(i):
-    print("Beginning dumping {}".format(i))
+    print(f"Merging {i} into {args.output}.{i:05d}.harm ...")
 
     pp.rblock_new(i)
     pp.rpar_new(i)
@@ -77,7 +84,7 @@ def worker(i):
     uug = foo * pp.uu
     bug = foo * pp.bu
 
-    with open(f"{args.output_filename_base}.{i:05d}.harm", "wb") as f:
+    with open(f"{args.output}.{i:05d}.harm", "wb") as f:
         # Write header
         dx1 = pp.x1[0, 1, 0, 0] - pp.x1[0, 0, 0, 0]
         dx2g = x2g[0, 0, 1, 0] - x2g[0, 0, 0, 0]
@@ -100,7 +107,15 @@ def worker(i):
             1.0,
             8,
         ]
-        header_str = " ".join([repr(float(entry) if hasattr(entry, '__float__') else int(entry)) for entry in header]) + "\n"
+        header_str = (
+            " ".join(
+                [
+                    repr(float(entry) if hasattr(entry, "__float__") else int(entry))
+                    for entry in header
+                ]
+            )
+            + "\n"
+        )
         f.write(bytes(header_str, "ascii"))
 
         # Write cell data
@@ -127,7 +142,7 @@ def worker(i):
         ).transpose(1, 2, 3, 0)
         data.tofile(f)
 
-    print(f"Finished dumping {i}")
+    print(f"Finished merging {i} into {args.output}.{i:05d}.harm")
 
 
 for i in frame_nums:
