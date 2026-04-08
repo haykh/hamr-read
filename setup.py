@@ -13,7 +13,7 @@ _is_mac = sys.platform == "darwin"
 
 ext = Extension(
     name="hamr_read.pp_c",
-    sources=["pp_c.pyx", "functions.c"],
+    sources=["hamr_read/pp_c.pyx", "hamr_read/functions.c"],
     include_dirs=[np.get_include()],
     extra_compile_args=[] if _is_mac else ["-fopenmp"],
     extra_link_args=["-O2"] if _is_mac else ["-O2", "-fopenmp"],
