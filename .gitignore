@@ -154,6 +154,6 @@ cython_debug/
 test/
 temp/
 *.bak
-py_c.c
 *.harm
 *_old.py
+pp_c.c
