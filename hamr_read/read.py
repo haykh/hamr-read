@@ -4,18 +4,6 @@ import numpy as np
 import xarray as xr
 
 
-def DataIs2DPolar(ds: xr.Dataset) -> bool:
-    """Check if the dataset is 2D polar.
-    A dataset is considered 2D polar if it has two dimensions: "r" and either "θ" or "th".
-
-    Returns
-    -------
-    bool
-        True if the dataset is 2D polar, False otherwise.
-    """
-    return ("r" in ds.dims and "th" in ds.dims) and len(ds.dims) == 2
-
-
 class polar_accessor:
     def __init__(self, xarray_obj) -> None:
         self._obj = xarray_obj
@@ -28,10 +16,10 @@ class polar_accessor:
         ----------
         ax : Axes object, optional
             The axes on which to plot. Default is the current axes.
-        cell_centered : bool, optional
-            Whether the data is cell-centered. Default is True.
-        cell_size : float, optional
-            If not cell_centered, defines the fraction of the cell to use for coloring. Default is 0.75.
+        plane : str, optional
+            The plane to plot ["r-th", "r-phi"]. Default is "r-th".
+        phi : float, optional
+            The value of phi to plot if `plane` is "r-th". Default is None.
         cbar_size : str, optional
             The size of the colorbar. Default is "5%".
         cbar_pad : float, optional
@@ -75,6 +63,11 @@ class polar_accessor:
         from mpl_toolkits.axes_grid1 import make_axes_locatable
 
         ax = kwargs.pop("ax", plt.gca())
+        if len(self._obj.dims) == 2:
+            plane_to_plot = "r-th" if "th" in self._obj.dims else "r-phi"
+        else:
+            plane_to_plot = kwargs.pop("plane", "r-th")
+
         cbar_size = kwargs.pop("cbar_size", "5%")
         cbar_pad = kwargs.pop("cbar_pad", 0.05)
         cbar_pos = kwargs.pop("cbar_position", "right")
@@ -85,15 +78,36 @@ class polar_accessor:
         title = kwargs.pop("title", None)
         invert_x = kwargs.pop("invert_x", False)
         invert_y = kwargs.pop("invert_y", False)
-        ylabel = kwargs.pop("ylabel", "y")
-        xlabel = kwargs.pop("xlabel", "x")
+        ylabel = kwargs.pop(
+            "ylabel", "$z / r_g$" if plane_to_plot == "r-th" else "$y / r_g$"
+        )
+        xlabel = kwargs.pop("xlabel", "$x / r_g$")
         label = kwargs.pop("label", None)
-        cell_centered = kwargs.pop("cell_centered", True)
-        cell_size = kwargs.pop("cell_size", 0.75)
 
         assert ax.name != "polar", "`ax` must be a rectilinear projection"
         assert "t" not in self._obj.dims, "Time must be specified"
-        assert DataIs2DPolar(self._obj), "Data must be 2D polar"
+
+        phi_plane = kwargs.pop("phi", None)
+        if plane_to_plot == "r-th":
+            if len(self._obj.dims) == 3:
+                assert (
+                    phi_plane is not None
+                ), "Phi value must be specified for r-th plane"
+                self._obj = self._obj.sel(phi=phi_plane, method="nearest")
+            else:
+                assert (
+                    "phi" not in self._obj.dims
+                ), f"Phi dimension must be specified for r-th plane: found {self._obj.dims}"
+        elif plane_to_plot == "r-phi":
+            if len(self._obj.dims) == 3:
+                self._obj = self._obj.sel(th=np.pi / 2, method="nearest")
+            else:
+                assert (
+                    "th" not in self._obj.dims
+                ), f"Theta dimension must be specified for r-phi plane: found {self._obj.dims}"
+        else:
+            raise ValueError(f"Invalid plane: {plane_to_plot}")
+
         ax.grid(False)
         if type(kwargs.get("norm", None)) is colors.LogNorm:
             cm = kwargs.get("cmap", "viridis")
@@ -103,32 +117,30 @@ class polar_accessor:
 
         vals = self._obj.values.T.flatten()
         vals = np.concatenate((vals, vals))
-        if not cell_centered:
-            drs = self._obj.coords["r_max"] - self._obj.coords["r_min"]
-            dths = self._obj.coords["th_max"] - self._obj.coords["th_min"]
-            r1s = self._obj.coords["r_min"] - drs * cell_size / 2
-            r2s = self._obj.coords["r_min"] + drs * cell_size / 2
-            th1s = self._obj.coords["th_min"] - dths * cell_size / 2
-            th2s = self._obj.coords["th_min"] + dths * cell_size / 2
-            rs = np.ravel(np.column_stack((r1s, r2s)))
-            ths = np.ravel(np.column_stack((th1s, th2s)))
-            nr = len(rs)
-            nth = len(ths)
-            rs, ths = np.meshgrid(rs, ths)
-            rs = rs.flatten()
-            ths = ths.flatten()
-            points_1 = np.arange(nth * nr).reshape(nth, -1)[:-1:2, :-1:2].flatten()
-            points_2 = np.arange(nth * nr).reshape(nth, -1)[:-1:2, 1::2].flatten()
-            points_3 = np.arange(nth * nr).reshape(nth, -1)[1::2, 1::2].flatten()
-            points_4 = np.arange(nth * nr).reshape(nth, -1)[1::2, :-1:2].flatten()
 
-        else:
-            rs = np.append(self._obj.coords["r_min"], self._obj.coords["r_max"][-1])
+        rs = np.append(self._obj.coords["r_min"], self._obj.coords["r_max"][-1])
+        nr = len(rs)
+
+        if plane_to_plot == "r-phi":
+            phs = np.append(
+                self._obj.coords["phi_min"],
+                self._obj.coords["phi_max"][-1],
+            )
+            nph = len(phs)
+            rs, phs = np.meshgrid(rs, phs)
+            rs = rs.flatten()
+            phs = phs.flatten()
+            points_1 = np.arange(nph * nr).reshape(nph, -1)[:-1, :-1].flatten()
+            points_2 = np.arange(nph * nr).reshape(nph, -1)[:-1, 1:].flatten()
+            points_3 = np.arange(nph * nr).reshape(nph, -1)[1:, 1:].flatten()
+            points_4 = np.arange(nph * nr).reshape(nph, -1)[1:, :-1].flatten()
+
+            x, y = rs * np.cos(phs), rs * np.sin(phs)
+        elif plane_to_plot == "r-th":
             ths = np.append(
                 self._obj.coords["th_min"],
                 self._obj.coords["th_max"][-1],
             )
-            nr = len(rs)
             nth = len(ths)
             rs, ths = np.meshgrid(rs, ths)
             rs = rs.flatten()
@@ -137,7 +149,11 @@ class polar_accessor:
             points_2 = np.arange(nth * nr).reshape(nth, -1)[:-1, 1:].flatten()
             points_3 = np.arange(nth * nr).reshape(nth, -1)[1:, 1:].flatten()
             points_4 = np.arange(nth * nr).reshape(nth, -1)[1:, :-1].flatten()
-        x, y = rs * np.sin(ths), rs * np.cos(ths)
+
+            x, y = rs * np.sin(ths), rs * np.cos(ths)
+        else:
+            raise ValueError(f"Invalid plane: {plane_to_plot}")
+
         if invert_x:
             x = -x
         if invert_y:
