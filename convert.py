@@ -100,7 +100,7 @@ def worker(i):
             1.0,
             8,
         ]
-        header_str = " ".join([repr(entry) for entry in header]) + "\n"
+        header_str = " ".join([repr(float(entry) if hasattr(entry, '__float__') else int(entry)) for entry in header]) + "\n"
         f.write(bytes(header_str, "ascii"))
 
         # Write cell data
