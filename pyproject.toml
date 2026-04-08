@@ -5,9 +5,9 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hamr_read"
 version = "0.1.0"
-description = "Python bindings for reading and processing HARM GRMHD simulation data"
+description = "Python bindings for reading and processing HAMR GRMHD simulation data"
 requires-python = ">=3.8"
-dependencies = ["numpy", "xarray"]
+dependencies = ["numpy", "xarray", "matplotlib"]
 
 [project.scripts]
 hamr_convert = "hamr_read.convert:main"

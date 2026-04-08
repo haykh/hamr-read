@@ -1,9 +1,3 @@
-"""
-Build script for the hamr_read.pp_c Cython extension.
-All project metadata lives in pyproject.toml.
-Install with: pip install .
-"""
-
 import sys
 import numpy as np
 from setuptools import setup, Extension
